@@ -12,3 +12,13 @@ The faster-rcnn folder contains images that detect prediction errors using the u
 ./model/checkpoints文件夹里面应该包含的模型的所有权重，如果想要获取，[点击这儿，提取码为pfms](https://pan.baidu.com/s/1rCRXDiR_41KjEA9rBYyHYg)
 
 All the weights of the model that should be included in the ./model/checkpoints folder, if you want to get them, click here, [the extraction code is pfms](https://pan.baidu.com/s/1rCRXDiR_41KjEA9rBYyHYg)
+
+./VOCdevkit文件夹是用于保存VOC2007数据集，可以采用下面方式获取：
+
+The ./VOCdevkit folder is used to hold the VOC2007 dataset and can be obtained as:
+
+```shell
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
+```
