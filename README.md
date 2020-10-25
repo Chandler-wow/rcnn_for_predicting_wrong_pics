@@ -9,7 +9,7 @@ faster-rcnn文件夹里面包含的是借助于[simple-faster-rcnn](https://gith
 
 The faster-rcnn folder contains images that detect prediction errors using the use of fast-rcnn with the help of the use of simple-faster-rcnn.Others are for the RCNN.
 
-./model/checkpoints文件夹里面应该包含的模型的所有权重，如果想要获取，[点击这儿，提取码为pfms](https://pan.baidu.com/s/1rCRXDiR_41KjEA9rBYyHYg)
+./model/checkpoints文件夹里面应该包含的模型的所有权重，如果想要获取，[点击这儿，提取码为qz8c](https://pan.baidu.com/s/18d-4BBKdYsxqKa1BAMnWCA)
 
 All the weights of the model that should be included in the ./model/checkpoints folder, if you want to get them, click here, [the extraction code is pfms](https://pan.baidu.com/s/1rCRXDiR_41KjEA9rBYyHYg)
 
