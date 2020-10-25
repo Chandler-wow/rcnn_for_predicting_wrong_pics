@@ -5,6 +5,7 @@ import torch as t
 import matplotlib.pyplot as plt 
 import pandas as pd 
 import ipdb
+import cv2
 import warnings
 from dataset.VOCDataset import TrainCNNDataset,TrainSVMAndLRDataset,NormalDataset
 from model.AlexNet import AlexNet
@@ -13,6 +14,7 @@ from model.LinearRegressor import LRs
 from utils.Config import opt
 from utils.eval_tool import eval_detection_voc
 from utils.supplement import wrong_2_draw,maki_all
+from utils.bbox_tools import loc2bbox
 from torchnet import meter
 from tqdm import tqdm 
 from torchvision.ops import nms
@@ -107,27 +109,19 @@ def train_SVMs_and_LRs(**kwargs):
     locs = []
     lr_labels = []
     
-    svm_l = set(opt.VOC_BBOX_LABEL_NAMES)
-    lr_l = set(opt.VOC_BBOX_LABEL_NAMES)
-    
     for ii,(sample_imgs,sample_labels,sample_pos_neg_labels,bbox_imgs,locs_,labels_) in tqdm(enumerate(dataloader)):
         inputs_ = sample_imgs.to(device)[0]
-        features_ = model.get_features(inputs_).detach().numpy()
+        features_ = model.get_features(inputs_).cpu().detach().numpy()
         features_svm.extend(list(features_))
         svm_labels.extend(sample_labels.numpy())
         pos_neg.extend(sample_pos_neg_labels.numpy())
         
         if bbox_imgs.shape[1] != 0:
             _inputs = bbox_imgs.to(device)[0]
-            _features = model.get_features(_inputs).detach().numpy()
+            _features = model.get_features(_inputs).cpu().detach().numpy()
             features_lr.extend(list(_features))
             lr_labels.extend(list(labels_.numpy()))
             locs.extend(locs_.numpy())
-        
-        svm_l,b1 = maki_all(sample_labels.numpy(),svm_l)
-        lr_l,b2 = maki_all(labels_.numpy(),lr_l)
-        if b1 and b2:
-            break
         
     svm_labels = np.hstack(svm_labels)
     pos_neg = np.hstack(pos_neg)
@@ -182,26 +176,52 @@ def test(**kwargs):
     device = opt.device
     
     cnn = AlexNet()
+    in_features = cnn.classifier[6].in_features
+    cnn.classifier[6] = t.nn.Linear(in_features,21)
     cnn.load(opt.load_trained_path)
     cnn.to(device)
-    svms = SVMs.load(method = 'load')
-    lrs = LRs.load(method = 'load')
+    svms = SVMs(method = 'load')
+    lrs = LRs(method = 'load')
     
     dataset = NormalDataset(opt.voc_data_dir,split = 'test')
-    dataloader = t.utils.data.DataLoader(dataset,batch_size = 1,num_workers = opt.num_workers,shuffle = False)
-    
+    dataloader = t.utils.data.DataLoader(dataset,batch_size = 1,num_workers = 0,shuffle = False)
+    ipdb.set_trace()
     pred_bbox_last_, pred_label_last_, pred_score_last_, gt_bbox_, gt_label_ = [],[],[],[],[]
-    for ii,(img,bbox_imgs,bboxes,gt_bbox,gt_label,_) in enumerate(dataloader):
+    for ii,(img,bbox_imgs,bboxes,gt_bbox,gt_label,_) in tqdm(enumerate(dataloader)):
+    # for ii in tqdm(range(len(dataset))):
+        # img,bbox_imgs,bboxes,gt_bbox,gt_label,_ = dataset.getitem(ii)
+        img = img[0].numpy()
+        bboxes = bboxes[0].numpy()
+        gt_bbox = gt_bbox[0].numpy()
+        gt_label = gt_label[0].numpy()
         inputs = bbox_imgs.to(device)[0]
-        features = cnn.get_features(inputs).detach().numpy()
+        features = cnn.get_features(inputs).cpu().detach().numpy()
+        '''
+        imOut = cv2.UMat(img.numpy().transpose((1,2,0))*255).get()
+        for i, rect in enumerate(bboxes):
+            ymin, xmin, ymax, xmax = rect
+            cv2.rectangle(imOut, (xmin, ymin), (xmax, ymax), (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.imwrite('./pic/1.jpg',imOut)
         
         pred_label,pred_score,pred_bg = svms.predict(features)
         mask = np.where(pred_bg == False)[0]
+        
+        counts += 1
+        if mask.size == 0:
+            null_counts += 1
+        if ii == 10:
+            print("null per:{}".format(1.0*null_counts/counts))
+            break
+        
         pred_label = pred_label[mask]
         pred_score = pred_score[mask]
         pred_bboxes_unregress = bboxes[mask]  # np.ndarray
         bbox_features = features[mask]
-        
+        '''
+        pred_label,pred_score = svms.predict(features)
+        pred_bboxes_unregress = bboxes
+        bbox_features = features
+        # mark
         # 获取每个种类的bboxes和score，为了nms
         pred_bboxes_2_nms = dict()
         pred_score_2_nms = dict()
@@ -217,21 +237,28 @@ def test(**kwargs):
         pred_label_last = []
         pred_score_last = []
         for cat,bbox_nms in pred_bboxes_2_nms.items():
-            keep_mask = nms(bbox_nms,pred_score_2_nms[cat],opt.nms_thresh)
+            mask = np.where(pred_score_2_nms[cat] > opt.nms_thresh)[0]
+            if mask.size == 0:
+                continue
+            else:
+                bbox_nms = bbox_nms[mask]
+                pre_score_2_nms[cat] =  pre_score_2_nms[cat][mask]
+                features_2_nms = features_2_nms[mask]
+            keep_mask = nms(t.from_numpy(bbox_nms[:,[1,0,3,2]]).float(),t.from_numpy(pred_score_2_nms[cat]).float(),opt.iou_thresh)
             loc = lrs.predict(cat,bbox_features_2_nms[cat][keep_mask])
             pred_bbox_cat = loc2bbox(bbox_nms[keep_mask],loc)
             
             pred_score_last.append(pred_score_2_nms[cat][keep_mask])
             pred_bbox_last.append(pred_bbox_cat)
             pred_label_last.extend([cat]*pred_bbox_cat.shape[0])
+        if len(pred_label_last) > 0:
+            wrong_2_draw(img,np.vstack(pred_bbox_last),np.array(pred_label_last),gt_bbox,gt_label)
             
-        wrong_2_draw(img,np.vstack(pred_bbox_last),np.array(pred_label_last),gt_bbox,gt_label)
-        
-        pred_bbox_last_ += np.vstack(pred_bbox_last)
-        pred_label_last_ += np.array(pred_label_last)
-        pred_score_last_ += np.hstack(pred_Score_last)
-        gt_bbox_ += gt_bbox
-        gt_label_ += gt_label
+            pred_bbox_last_ += np.vstack(pred_bbox_last)
+            pred_label_last_ += np.array(pred_label_last)
+            pred_score_last_ += np.hstack(pred_Score_last)
+            gt_bbox_ += gt_bbox
+            gt_label_ += gt_label
     # evaluation
     res = eval_detection_voc(pred_bbox_last_, pred_label_last_, pred_score_last_, gt_bbox_, gt_label_)
     print(res)

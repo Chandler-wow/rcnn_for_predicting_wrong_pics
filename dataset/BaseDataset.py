@@ -29,7 +29,7 @@ def read_image(path, dtype=np.float32, color=True):
 
 class BaseDataset:
     def __init__(self, data_dir, split='trainval',
-                 use_difficult=False, return_difficult=False,
+                 use_difficult=True, return_difficult=False,
                  ):
         id_list_file = os.path.join(
             data_dir, 'ImageSets/Main/{0}.txt'.format(split))
@@ -69,7 +69,7 @@ class BaseDataset:
         img_file = os.path.join(self.data_dir, 'JPEGImages', id_ + '.jpg')
         img = read_image(img_file, color=True)
 
-        return img, bbox, label, difficult
+        return img/255.0, bbox, label, difficult
         
     def __len__(self):
         return len(self.ids)

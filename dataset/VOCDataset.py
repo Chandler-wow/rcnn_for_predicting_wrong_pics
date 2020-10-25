@@ -109,15 +109,18 @@ class TrainSVMAndLRDataset(BaseDataset):
         bbox = ss(img.transpose((1,2,0)))
         iou = bbox_iou(bbox,gt_bbox)
         svm_mask = np.where((iou < opt.svm_tresh).all(axis = 1))[0]
-        svm_bbox = bbox[svm_mask]
-        svm_iou = iou[svm_mask]
+        
         # SVM 操作
-        # 获得所有负例
-        neg_label = np.apply_along_axis(lambda x:gt_label[self.get_hardest_neg(x)],axis = 1,arr = svm_iou)
-        neg_img = cut_img(svm_bbox,img)
         # 获得所有正例
         pos_label = gt_label
         pos_imgs = cut_img(gt_bbox,img)
+        # 获得所有负例
+        svm_mask = np.random.choice(svm_mask,size = (3*gt_bbox.shape[0]))
+        svm_bbox = bbox[svm_mask]
+        svm_iou = iou[svm_mask]
+        
+        neg_label = np.apply_along_axis(lambda x:gt_label[self.get_hardest_neg(x)],axis = 1,arr = svm_iou)
+        neg_img = cut_img(svm_bbox,img)
         # 整合
         sample_img = np.vstack((neg_img,pos_imgs))
         sample_label = np.hstack((neg_label,pos_label))

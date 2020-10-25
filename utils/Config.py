@@ -31,6 +31,7 @@ class Config:
     svm_tresh = 0.3 
     LR_tresh = 0.7
     nms_thresh = 0.6
+    iou_thresh = 0.6
     epoch = 10  # 训练轮数
     ss_num_bboxes = 2000
     bef_categories = 1000  # AlexNet最初最后一层的神经元个数

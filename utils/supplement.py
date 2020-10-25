@@ -16,19 +16,23 @@ def wrong_2_draw(img,bboxes,labels,gt_bboxes,gt_labels,ind):
     ''' 判断这次预测是否正确，不正确则画出两张分别带有ground truth和pred bbox的图片 '''
     pg = bbox_iou(bboxes,gt_bboxes)
     pg_ind = pg.argmax(axis = 1)
-    
+    img = img.transpose((1,2,0))*255
     if sum(pg.max(axis = 1) < 0.2) > 0 or sum(labels != gt_labels[pg_ind]) > 0:
         draw_(img,bboxes,ind)
         draw_(img,gt_bboxes,ind,outline = (0,255,0))
         
 def draw_(img,bboxes,ind,outline = (255,0,0)):
     ''' 画出两张分别带有ground truth和pred bbox的图片 '''
+    if (outline == (255,0,0)).all():
+        name = 'pred'
+    else:
+        name = 'gt'
     image = Image.fromarray(img.transpose((1,2,0)))
     draw = ImageDraw.Draw(image)
     for bbox in bboxes:
         ymin,xmin,ymax,xmax = bbox
         draw.rectangle((xmin,ymin,xmax,ymax),outline = outline)
-    image.save(opt.pic_path+'img_{}_pred.png'.format(ind))
+    image.save(opt.pic_path+'img_{}_{}.png'.format(ind,name))
 
 def cut_img(bbox,img):
     ''' 将img上的bbox框住的图片选出来 '''
